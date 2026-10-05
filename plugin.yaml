@@ -1,0 +1,9 @@
+name: cybr-proof
+version: 0.1.0
+manifest_version: 2
+api_version: 1
+description: "Cybr Proof — turns every computer_use run into a video with a ghost cursor. Zero overhead: reuses the screenshots the agent already took and the click coordinates it already sent, renders when the turn ends. Attach to PRs, use as demo/doc footage."
+author: CybrFlux
+license: MIT
+kind: backend
+tags: [computer-use, video, recording, qa, testing, proof]
