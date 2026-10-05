@@ -14,6 +14,14 @@
 
 ```bash
 git clone https://github.com/CybrFlux/cybr-proof ~/cybr-proof
+~/cybr-proof/scripts/install.sh        # every Hermes profile; on Hyprland also sets up cua-driver 0.33 + compositor plugin
+```
+
+Idempotent — re-run after `hermes update`, a Hyprland update, or when you add a profile. Everything lives outside the Hermes checkout (symlinks into `$HERMES_HOME/plugins`, `config.yaml` keys, `~/.local/opt`, `~/.config/hypr`), so Hermes updates can't remove it. The plugin picks the newest cua-driver under `~/.local/opt` by itself at load time (no `.env` edits) and re-arms the Hyprland plugin if the compositor dropped it.
+
+Manual equivalent:
+
+```bash
 ln -s ~/cybr-proof ~/.hermes/plugins/cybr-proof     # $HERMES_HOME/plugins if you use profiles
 hermes plugins enable cybr-proof
 ```

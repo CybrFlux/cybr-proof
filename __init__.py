@@ -63,6 +63,62 @@ def _render_now(session_id: str, scope: str = "turn", overrides: Optional[Dict[s
     return res
 
 
+# ── driver self-selection (survives `hermes update`, works per profile without .env edits) ─────────
+def _pick_cua_driver() -> Optional[str]:
+    """Newest cua-driver >= 0.33 under ~/.local/opt (or ``cybr_proof.cua_driver`` in config.yaml).
+    Hermes pins an old driver that cannot capture pixels / deliver input on Hyprland; on Linux+Wayland
+    we point HERMES_CUA_DRIVER_CMD at ours unless the operator already set one."""
+    import glob
+    import platform
+
+    explicit = _cfg().get("cua_driver")
+    if explicit and os.path.exists(os.path.expanduser(str(explicit))):
+        return os.path.expanduser(str(explicit))
+    if platform.system() != "Linux" or not os.environ.get("WAYLAND_DISPLAY"):
+        return None
+    hits = glob.glob(os.path.expanduser("~/.local/opt/cua-driver-*/cua-driver-rs-*/cua-driver"))
+    hits = [h for h in hits if os.access(h, os.X_OK)]
+    if not hits:
+        return None
+
+    def ver(p: str):
+        try:
+            return tuple(int(x) for x in p.split("cua-driver-rs-")[1].split("-")[0].split("."))
+        except Exception:
+            return (0,)
+    return max(hits, key=ver)
+
+
+def _ensure_driver_env() -> None:
+    if os.environ.get("HERMES_CUA_DRIVER_CMD") or _cfg().get("manage_driver", True) is False:
+        return
+    drv = _pick_cua_driver()
+    if drv:
+        os.environ["HERMES_CUA_DRIVER_CMD"] = drv
+        os.environ.setdefault("CUA_DRIVER_RS_ENABLE_WAYLAND", "1")
+        logger.info("cybr-proof: using cua-driver %s", drv)
+
+
+def _ensure_hyprland_plugin() -> None:
+    """Hyprland: make sure the cua compositor plugin is loaded (rebuilds after a Hyprland update)."""
+    import shutil
+    import subprocess
+
+    if not shutil.which("hyprctl") or _cfg().get("manage_hyprland_plugin", True) is False:
+        return
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts", "hyprland-plugin.sh")
+    if not os.path.exists(script):
+        return
+    try:
+        st = subprocess.run(["hyprctl", "cua:status"], capture_output=True, text=True, timeout=3).stdout
+        if "transport: ready" in st:
+            return
+        subprocess.Popen(["bash", script, "ensure"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         start_new_session=True)
+    except Exception as e:
+        logger.debug("cybr-proof: hyprland plugin check skipped: %s", e)
+
+
 # ── hooks ──────────────────────────────────────────────────────────────────────
 def _screen_grab(session_id: str):
     """Composited full-screen capture through the same cua-driver session, with the post_tool_call hook
@@ -229,6 +285,8 @@ def _cli(args) -> int:
 
 # ── registration ───────────────────────────────────────────────────────────────
 def register(ctx) -> None:  # noqa: D401 — plugin entry point
+    _ensure_driver_env()
+    _ensure_hyprland_plugin()
     ctx.register_hook("post_tool_call", _on_post_tool_call)
     ctx.register_hook("on_session_end", _on_session_end)
     ctx.register_tool(
