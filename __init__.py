@@ -64,6 +64,33 @@ def _render_now(session_id: str, scope: str = "turn", overrides: Optional[Dict[s
 
 
 # ── hooks ──────────────────────────────────────────────────────────────────────
+def _screen_grab(session_id: str):
+    """Composited full-screen capture through the same cua-driver session, with the post_tool_call hook
+    suppressed so it never records itself. Used only when an app capture returned no pixels."""
+    if not _cfg().get("screen_fallback", True):
+        return None
+    from model_tools import suppress_post_tool_call_hook  # type: ignore
+    from tools.registry import registry  # type: ignore
+    import tools.computer_use_tool  # noqa: F401  ensure the tool is registered in this process
+
+    with suppress_post_tool_call_hook():
+        res = registry.dispatch("computer_use", {"action": "capture", "app": "screen", "mode": "vision"},
+                                session_id=session_id)
+    meta = (res.get("meta") or {}) if isinstance(res, dict) else {}
+    if not meta.get("screenshot_path"):
+        try:
+            data = json.loads(res) if isinstance(res, str) else {}
+            meta = {"screenshot_path": data.get("screenshot_path"), "width": data.get("width"), "height": data.get("height")}
+        except Exception:
+            return None
+    if not meta.get("screenshot_path"):
+        return None
+    return meta["screenshot_path"], meta.get("width"), meta.get("height")
+
+
+recorder.SCREEN_GRAB = _screen_grab
+
+
 def _on_post_tool_call(**kw: Any) -> None:
     try:
         recorder.record(**kw)
@@ -78,7 +105,8 @@ def _on_session_end(session_id: Optional[str] = None, **_: Any) -> None:
     if not st.get("dirty"):
         return
     st["dirty"] = False
-    threading.Thread(target=_render_now, args=(session_id, "turn"), name="cybr-proof-render", daemon=True).start()
+    # non-daemon: a one-shot `hermes chat -q` must not exit before the mp4 is written (render is bounded)
+    threading.Thread(target=_render_now, args=(session_id, "turn"), name="cybr-proof-render", daemon=False).start()
 
 
 # ── tool ───────────────────────────────────────────────────────────────────────

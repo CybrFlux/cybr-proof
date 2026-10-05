@@ -147,10 +147,14 @@ def draw_ripple(canvas: Image.Image, x: float, y: float, t: float, scale: float 
     canvas.alpha_composite(layer)
 
 
+_font_scale = [1.0]
+
+
 def draw_chip(canvas: Image.Image, text: str, anchor: str = "bottom", font_size: int = 18) -> None:
     W, H = canvas.size
+    font_size = int(font_size * _font_scale[0])
     f = _font(font_size)
-    pad = 10
+    pad = int(10 * _font_scale[0])
     layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
     bbox = d.textbbox((0, 0), text, font=f)
@@ -295,6 +299,9 @@ def render(session_id: str, *, scope: str = "turn", opt: Optional[RenderOptions]
     scale = min(1.0, opt.max_width / W) if W > opt.max_width else 1.0
     W2, H2 = int(W * scale) // 2 * 2, int(H * scale) // 2 * 2  # even dims for yuv420p
     ffmpeg = find_ffmpeg()
+    ui = max(1.0, H2 / 900.0)  # HiDPI captures: keep cursor + chips legible
+    opt.cursor_scale *= ui
+    _font_scale[0] = ui
     ext = {"mp4": ".mp4", "gif": ".gif", "webm": ".webm"}[opt.fmt]
     out = Path(out_path) if out_path else sdir / f"proof-{time.strftime('%Y%m%d-%H%M%S')}{ext}"
     sink = _Sink(out, (W2, H2), opt, ffmpeg)
