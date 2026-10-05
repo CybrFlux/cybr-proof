@@ -78,6 +78,18 @@ CYBR_PROOF_DIR=/tmp/cp-demo python scripts/demo.py /tmp/cp-demo/demo.mp4
 
 builds a synthetic sign-in flow using the exact result shapes Hermes emits and renders it.
 
+## Linux / Hyprland (Omarchy) — what it took to get clicks landing here
+
+Hermes pins cua-driver 0.21.0, which on Hyprland captures the AX tree but no window pixels and cannot deliver input. The combination that works on a live Omarchy box (Hyprland 0.56.2):
+
+1. `hermes config set computer_use.native_wayland true`
+2. cua-driver **0.33.3** (`gh release download cua-driver-rs-v0.33.3 -R trycua/cua -p 'cua-driver-rs-0.33.3-linux-x86_64.tar.gz'`), pointed at with `HERMES_CUA_DRIVER_CMD=/path/to/cua-driver` in `~/.hermes/.env`
+3. Hermes on a `main` newer than 2026-10-04 (has `element_token` support) — `hermes update`
+4. The **cua Hyprland plugin** from the same release (`cua-hyprland-plugin-0.33.3-*.tar.gz`), built against your running Hyprland: `cmake -S . -B build -G Ninja -DCUA_HYPRLAND_INPUT=ON && cmake --build build` (cmake/ninja via `uv tool install cmake ninja` if pacman isn't an option), then `hyprctl plugin load …/build/cua-hyprland-plugin.so` and in `~/.config/hypr/hyprland.lua`: `hl.config({ plugin = { cua = { enabled = true } } })`. Persist with `o.exec_on_start("hyprctl plugin load …")` in `autostart.lua`.
+5. `contrib/cua-driver-shim` — a 40-line Hermes plugin that drops the legacy `element_index` field the new driver refuses (`ln -s …/contrib/cua-driver-shim ~/.hermes/plugins/ && hermes plugins enable cua-driver-shim`).
+
+Background delivery is refused for most apps (`client_not_qualified` — cua only certifies Calc/Inkscape on Hyprland today); the agent escalates to `delivery_mode="foreground"` and input lands. If a capture ever comes back image-less, cybr-proof's screen-crop fallback (`hyprctl` geometry) still produces frames.
+
 ## Roadmap
 
 - `browser_*` tools (screenshot + `click_at_xy`) as a second source

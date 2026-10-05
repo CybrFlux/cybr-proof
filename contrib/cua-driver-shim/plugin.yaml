@@ -1,0 +1,9 @@
+name: cua-driver-shim
+version: 0.1.0
+manifest_version: 2
+api_version: 1
+description: "Compat shim so Hermes' computer_use works with cua-driver >= 0.33 (element_token-only click schema). Drops the legacy element_index field when the live tool schema does not accept it."
+author: CybrFlux
+license: MIT
+kind: backend
+tags: [computer-use, cua-driver, hyprland]
