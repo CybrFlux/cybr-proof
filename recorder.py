@@ -265,7 +265,7 @@ def record(tool_name: str, args: Dict[str, Any], result: Any, *, session_id: Opt
             if action == "scroll":
                 ev["direction"], ev["amount"] = args.get("direction"), args.get("amount", 3)
             if action == "set_value":
-                ev["value"] = str(args.get("value", ""))[:80]
+                ev["value"] = _mask_typed({**st, "last_label": ev.get("label") or ""}, str(args.get("value", "")))[:80]
         elif action == "drag":
             ev["from"] = _resolve_point(st, args.get("from_element"), args.get("from_coordinate"))
             ev["to"] = _resolve_point(st, args.get("to_element"), args.get("to_coordinate"))

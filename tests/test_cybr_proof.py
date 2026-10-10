@@ -19,6 +19,14 @@ def plugin(tmp_path, monkeypatch):
     return mod, demo
 
 
+def test_set_value_respects_mask_all_typed(plugin, monkeypatch):
+    mod, _ = plugin
+    monkeypatch.setattr(mod.recorder, "mask_all_typed", lambda: True)
+    mod.recorder.record("computer_use", {"action": "set_value", "value": "private-value"},
+                        json.dumps({"ok": True}), session_id="mask-set-value")
+    assert mod.store.read_events("mask-set-value")[0]["value"] == "•" * 12
+
+
 def _capture(demo, tmp_path, name, **kw):
     p = tmp_path / f"{name}.png"
     demo.fake_screen(p, "T", {"Email": (390, 500), "Password": (390, 500)}, **kw)
